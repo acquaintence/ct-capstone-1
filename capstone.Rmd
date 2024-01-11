@@ -1,0 +1,402 @@
+---
+title: "Capstone"
+output: html_document
+date: "2023-12-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(readr)
+library(ggplot2)
+library(dplyr)
+music_data <- read.csv('music.csv')
+View(music_data)
+```
+
+
+```{r}
+# Popularity and Energy 
+# Hypothesis : tracks with higher energy are more popular
+
+music_data %>%
+  filter(track_genre == 'pop')  %>%
+  ggplot(mapping = aes(x = popularity , y = energy, color = 'pop')) +
+    geom_point(alpha = 1/5)+
+  ggtitle("Energy vs. Popularity in Pop Music")+
+  scale_color_manual(values = c('pop' = 'hotpink'))+
+  theme(
+    legend.position = "none",
+  )
+
+```
+```{r}
+
+pop_music <- music_data %>%
+  filter(track_genre == 'pop')
+
+View(pop_music)
+```
+
+
+
+```{r}
+cor_music <- select(pop_music,popularity, danceability,energy,loudness,speechiness,acousticness,instrumentalness,liveness,valence,tempo)
+cormat <- round(cor(cor_music),2)
+head(cormat)
+```
+
+
+```{r}
+#install.packages("reshape2")
+library(reshape2)
+melted_cormat <- melt(cormat)
+head(melted_cormat)
+
+```
+
+```{r}
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value))+
+  geom_raster()
+```
+```{r}
+# Get lower triangle of the correlation matrix
+  get_lower_tri<-function(cormat){
+    cormat[upper.tri(cormat)] <- NA
+    return(cormat)
+  }
+  # Get upper triangle of the correlation matrix
+  get_upper_tri <- function(cormat){
+    cormat[lower.tri(cormat)]<- NA
+    return(cormat)
+  }
+reorder_cormat <- function(cormat){
+# Use correlation between variables as distance
+dd <- as.dist((1-cormat)/2)
+hc <- hclust(dd)
+cormat <-cormat[hc$order, hc$order]
+}
+cormat <- reorder_cormat(cormat)
+upper_tri <- get_upper_tri(cormat)
+
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+
+ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "hotpink", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+    name="Pearson\nCorrelation") +
+  theme_minimal()+ # 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed()
+# Print the heatmap
+print(ggheatmap)
+```
+```{r}
+# Add labels 
+ggheatmap + 
+geom_text(aes(Var2, Var1, label = value), color = "black", size = 2.3) +
+theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  legend.justification = c(1, 0),
+  legend.position = c(0.6, 0.7),
+  legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                title.position = "top", title.hjust = 0.5))
+```
+```{r}
+# Filtering out top 100 most popular songs 
+popular <- music_data %>%
+  arrange(desc(popularity)) %>%
+  dplyr::distinct(track_id, .keep_all = TRUE)
+
+top_pop <- head(popular,100)
+View(top_pop)
+```
+```{r}
+top_genres_filtered <- top_pop %>%
+  group_by(track_genre) %>%
+  summarise(count = n()) %>%
+  filter(count > 1)
+
+View(top_genres_filtered)
+```
+
+```{r}
+library(forcats)
+
+top_genres_ordered <- top_genres_filtered %>%
+  mutate(track_genre= fct_reorder(track_genre,count))
+
+barplot <- ggplot(data = top_genres_ordered) +
+  geom_col(mapping = aes(x = track_genre, y = count, fill = track_genre)) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )+
+  ggtitle("Top 100 Most Popular Songs by Genre")
+
+print(barplot)
+```
+
+
+```{r}
+cor_top_music <- select(top_pop,popularity, danceability,energy,loudness,speechiness,acousticness,instrumentalness,liveness,valence,tempo)
+cormat_top <- round(cor(cor_top_music),2)
+head(cormat_top)
+```
+
+
+```{r}
+#install.packages("reshape2")
+library(reshape2)
+melted_cormat_top <- melt(cormat_top)
+head(melted_cormat_top)
+
+```
+
+```{r}
+ggplot(data = melted_cormat_top, aes(x=Var1, y=Var2, fill=value))+
+  geom_raster()
+```
+```{r}
+# Get lower triangle of the correlation matrix
+  get_lower_tri<-function(cormat_top){
+    cormat_top[upper.tri(cormat_top)] <- NA
+    return(cormat_top)
+  }
+  # Get upper triangle of the correlation matrix
+  get_upper_tri <- function(cormat_top){
+    cormat_top[lower.tri(cormat_top)]<- NA
+    return(cormat_top)
+  }
+reorder_cormat <- function(cormat){
+# Use correlation between variables as distance
+dd <- as.dist((1-cormat)/2)
+hc <- hclust(dd)
+cormat_top <-cormat_top[hc$order, hc$order]
+}
+cormat_top <- reorder_cormat(cormat_top)
+upper_tri <- get_upper_tri(cormat_top)
+
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+
+ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "hotpink", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+    name="Pearson\nCorrelation") +
+  theme_minimal()+ # 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+
+ coord_fixed()
+# Print the heatmap
+print(ggheatmap)
+
+```
+```{r}
+# Add labels 
+ggheatmap + 
+geom_text(aes(Var2, Var1, label = value), color = "black", size = 2.5) +
+theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  legend.justification = c(1, 0),
+  legend.position = c(0.6, 0.7),
+  legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                title.position = "top", title.hjust = 0.5))
+```
+```{r}
+top_pop %>%
+  ggplot(mapping = aes(x = loudness , y = energy, color = explicit)) +
+    geom_point()
+```
+```{r}
+ggplot(data = top_pop) +
+  geom_bar(mapping = aes(x=explicit, fill = explicit))
+```
+
+```{r}
+avg_by_genre <- music_data %>%
+  group_by(track_genre) %>%
+  summarize(
+    avg_danceability = mean(danceability),
+    avg_energy = mean(energy),
+    avg_loudness = mean(loudness),
+    avg_speechiness = mean(speechiness),
+    avg_instrumentalness = mean(instrumentalness),
+    avg_valence = mean(valence),
+    avg_tempo = mean(tempo)
+    
+  )
+
+top4_genres <- avg_by_genre %>%
+  filter(track_genre == 'pop' |track_genre == 'dance' | track_genre == 'latin' | track_genre == 'hip-hop' )
+```
+
+
+```{r}
+print(top4_genres)
+```
+```{r}
+#install.packages("fmsb")
+library(fmsb)
+```
+
+```{r}
+top4traits <- data.frame(
+  row.names = c('dance','hip-hop','latin','pop'),
+  danceability = c(0.687856,0.736154,0.721902,0.630441),
+  energy = c(0.708583,0.682530,0.727080,0.606437),
+  speechiness = c(0.0876378,0.1303534,0.0931231,0.0799752),
+  instrumentalness = c(0.008359415,0.010906549,0.009177002,0.009026304),
+  valence = c(0.5525414,0.5512478,0.6311490,0.5062227)
+)
+
+max_min <- data.frame(
+  danceability = c(1,0),
+  energy = c(1,0),
+  speechiness = c(1,0),
+  instrumentalness = c(1,0),
+  valence = c(1,0))
+
+rownames(max_min) <- c("Max", "Min")
+
+# Bind the variable ranges to the data
+df <- rbind(max_min, top4traits)
+df
+
+```
+```{r}
+dance_data <- df[c("Max", "Min", "dance"), ]
+hiphop_data <- df[c("Max", "Min", "hip-hop"), ]
+latin_data <- df[c("Max", "Min", "latin"), ]
+pop_data <- df[c("Max", "Min", "pop"), ]
+pretty_radarchart <- function(data, color = "magenta",
+                                        vlabels = colnames(data), vlcex = 0.8,
+                                         title = NULL){
+  radarchart(
+    data, axistype = 1,
+    # Customize the polygon
+    pcol = color, pfcol = scales::alpha(color, 0.5), plwd = 2, plty = 1,
+    # Customize the grid
+    cglcol = "grey", cglty = 1, cglwd = 0.8,
+   
+    # Variable labels
+    vlcex = vlcex, 
+    title = title,
+    axislabcol = 'grey',
+    caxislabels = c(0,0.2,0.4,0.6,0.8,1),
+    
+  )
+}
+op <- par(mar = c(1, 2, 2, 1))
+pretty_radarchart(dance_data, title = "dance", color = 'magenta')
+par(op)
+op <- par(mar = c(1, 2, 2, 1))
+pretty_radarchart(hiphop_data, title = "hip-hop",color = 'purple')
+par(op)
+op <- par(mar = c(1, 2, 2, 1))
+pretty_radarchart(pop_data, title = "pop",color = 'deeppink')
+par(op)
+op <- par(mar = c(1, 2, 2, 1))
+pretty_radarchart(latin_data, title = "latin",color = 'dodgerblue2')
+par(op)
+```
+```{r}
+bottom_pop <- (tail(popular,100)) %>%
+  dplyr::distinct(track_name, .keep_all = TRUE)
+
+
+bottom4genres <-  bottom_pop %>%
+  group_by(track_genre) %>%
+  summarise(count = n()) %>%
+
+
+print(bottom4genres)
+```
+```{r}
+bottom_genres_ordered <- bottom4genres %>%
+  mutate(track_genre= fct_reorder(track_genre,count))
+
+barplot <- ggplot(data = bottom_genres_ordered) +
+  geom_col(mapping = aes(x = track_genre, y = count, fill = track_genre)) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none",
+  )+
+  ggtitle("100 Least Popular Songs by Genre")+
+  scale_x_discrete(limits = rev(levels(bottom_genres_ordered$track_genre)))
+
+print(barplot)
+```
+
+
+```{r}
+bottom4_genres <- avg_by_genre %>%
+  filter(track_genre == 'trance' |track_genre == 'tango' | track_genre == 'turkish' | track_genre == 'techno' )
+
+print(bottom4_genres)
+
+```
+
+```{r}
+
+bottom4traits <- data.frame(
+  row.names = c('tango','techno','trance','turkish'),
+  danceability = c(0.537862,0.684348,0.583409,0.616077),
+  energy = c(0.3728280,0.7464130,0.8452720,0.6098036),
+  speechiness = c(0.0798359,0.1303534,0.0797055,0.1050867),
+  instrumentalness = c(0.13971501,0.54003822,0.42350094,0.03560285),
+  valence = c(0.5835295,0.3218783,0.2768808,0.4623137)
+)
+
+max_min <- data.frame(
+  danceability = c(1,0),
+  energy = c(1,0),
+  speechiness = c(1,0),
+  instrumentalness = c(1,0),
+  valence = c(1,0))
+
+rownames(max_min) <- c("Max", "Min")
+
+# Bind the variable ranges to the data
+df <- rbind(max_min, bottom4traits)
+df
+
+tango_data <- df[c("Max", "Min", "tango"), ]
+techno_data <- df[c("Max", "Min", "techno"), ]
+trance_data <- df[c("Max", "Min", "trance"), ]
+turkish_data <- df[c("Max", "Min", "turkish"), ]
+
+```
+```{r}
+op <- par(mar = c(1, 2, 2, 1))
+pretty_radarchart(tango_data, title = "tango", color = 'purple')
+par(op)
+op <- par(mar = c(1, 2, 2, 1))
+pretty_radarchart(techno_data, title = "techno",color = 'springgreen3')
+par(op)
+op <- par(mar = c(1, 2, 2, 1))
+pretty_radarchart(trance_data, title = "trance",color = 'deeppink')
+par(op)
+op <- par(mar = c(1, 1, 1, 1))
+pretty_radarchart(turkish_data, title = "turkish",color = 'dodgerblue2')
+par(op)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
